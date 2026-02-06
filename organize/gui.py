@@ -115,10 +115,12 @@ class OrganizeGUI:
         self.editor = scrolledtext.ScrolledText(editor_frame, wrap=tk.WORD, font=("Consolas", 10), undo=True)
         self.editor.pack(fill=tk.BOTH, expand=True)
         # YAML syntax tags
-        self.editor.tag_configure("key", foreground="blue")
-        self.editor.tag_configure("string", foreground="green")
-        self.editor.tag_configure("comment", foreground="gray")
-        self.editor.tag_configure("number", foreground="purple")
+        self.editor.tag_configure("key", foreground="blue", selectforeground="white")
+        self.editor.tag_configure("string", foreground="green", selectforeground="white")
+        self.editor.tag_configure("comment", foreground="gray", selectforeground="white")
+        self.editor.tag_configure("number", foreground="purple", selectforeground="white")
+        # Ensure selection is readable (overrides syntax on select)
+        self.editor.tag_configure("sel", background="#0078D4", foreground="white")
         self.editor.bind("<KeyRelease>", self._debounce_highlight)
 
         # Output console
