@@ -27,11 +27,11 @@ class OrganizeGUI:
     def setup_styles(self):
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("TButton", padding=6, relief="flat", background="#0078D4")
-        style.configure("TLabel", background="#F0F0F0", foreground="#333333")
-        style.configure("TFrame", background="#F0F0F0")
-        style.configure("TLabelframe", background="#F0F0F0")
-        style.configure("TLabelframe.Label", background="#F0F0F0", foreground="#333333")
+        style.configure("TButton", padding=6, relief="flat")
+        style.configure("TLabel")
+        style.configure("TFrame")
+        style.configure("TLabelframe")
+        style.configure("TLabelframe.Label")
 
     def create_widgets(self):
         # Main paned window
