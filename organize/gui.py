@@ -326,7 +326,7 @@ class OrganizeGUI:
                     self.root.after(0, self._auto_save_logs)
             except Exception as e:
                 self.root.after(0, self.log, f"Error: {str(e)}")
-                self.root.after(0, lambda: messagebox.showerror("Error", str(e)))
+                self.root.after(0, lambda e=e: messagebox.showerror("Error", str(e)))
 
         threading.Thread(target=run_thread, daemon=True).start()
 
