@@ -60,6 +60,49 @@ class OrganizeGUI:
       - echo: "ISO Format:   {created.strftime('%Y-%m-%d')}"
       - echo: "As timestamp: {created.timestamp() | int}"
 """,
+            "Organize Audio Files": """sources: &sources
+  - path: "./"
+
+targets: &targets
+  - path: "./"
+
+aud_ext: &aud_ext
+  - mp3
+  - mp3
+  - m4a
+  - M4A
+  - flac
+  - FLAC
+  - opus
+  - OPUS
+
+rules:
+  - name: Organize audio files
+    enabled: true
+    locations: *sources
+    subfolders: true
+    filters:
+      - extension:
+          - *aud_ext
+      - python: |
+          from tinytag import TinyTag
+          from pathvalidate import sanitize_filename
+
+          tag = TinyTag.get(path)
+
+          artist = tag.artist if not tag.albumartist else tag.albumartist
+          album = tag.album
+          title = tag.title
+
+          # [artist]\\[artist] - [album] - [title]
+          filename = f"{artist} - {album} - {title}.{extension}"
+          filename = sanitize_filename(filename)
+          filename = f"{artist}\\{filename}"
+
+          return { "filename": filename }
+    actions:
+      - move: "./{python.filename}"
+""",
         }
 
         self.create_widgets()
