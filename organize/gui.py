@@ -21,6 +21,34 @@ class OrganizeGUI:
         self.config_path = None
         self.current_config = ""
         self._highlight_timer = None
+        # Example configs
+        self.examples = {
+            "Basic PDF Organizer": """rules:
+  - name: "Sort PDFs"
+    locations: ~/Downloads
+    filters:
+      - extension: pdf
+    actions:
+      - move: ~/Documents/PDFs/
+""",
+            "Remove Duplicates": """rules:
+  - name: "Remove duplicates"
+    locations: ~/Downloads
+    filters:
+      - duplicate
+    actions:
+      - delete
+""",
+            "Empty Files Cleanup": """rules:
+  - name: "Delete empty files"
+    locations: ~/Downloads
+    subfolders: true
+    filters:
+      - empty
+    actions:
+      - delete
+""",
+        }
 
         self.create_widgets()
         self.load_default_config()
@@ -42,6 +70,13 @@ class OrganizeGUI:
         ttk.Button(config_frame, text="Load Config", command=self.load_config).pack(fill=tk.X, pady=2)
         ttk.Button(config_frame, text="Save Config", command=self.save_config).pack(fill=tk.X, pady=2)
         ttk.Button(config_frame, text="Check Config", command=self.check_config).pack(fill=tk.X, pady=2)
+
+        # Examples dropdown
+        ttk.Label(config_frame, text="Load Example:").pack(anchor=tk.W, pady=(5, 0))
+        self.example_var = tk.StringVar()
+        self.example_combo = ttk.Combobox(config_frame, textvariable=self.example_var, values=list(self.examples.keys()), state="readonly")
+        self.example_combo.pack(fill=tk.X, pady=(0, 5))
+        self.example_combo.bind("<<ComboboxSelected>>", self.load_example)
 
         self.working_dir_var = tk.StringVar(value=str(Path.home()))
         ttk.Label(config_frame, text="Working Dir:").pack(anchor=tk.W)
@@ -181,6 +216,17 @@ class OrganizeGUI:
         self.highlight_yaml()
         self.clear_output()
         self.log("New configuration created.")
+
+    def load_example(self, event=None):
+        example_name = self.example_var.get()
+        if example_name in self.examples:
+            self.config_path = None
+            self.current_config = self.examples[example_name]
+            self.editor.delete(1.0, tk.END)
+            self.editor.insert(tk.END, self.current_config)
+            self.highlight_yaml()
+            self.clear_output()
+            self.log(f"Loaded example: {example_name}")
 
     def load_config(self):
         file_path = filedialog.askopenfilename(
