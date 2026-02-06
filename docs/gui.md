@@ -8,8 +8,8 @@ organize now includes a cross-platform desktop GUI application for easier use of
 - Built-in YAML editor for configuration
 - One-click simulate and run operations
 - Customizable settings: working directory, tags, skip-tags
-- Real-time output logging
-- File dialogs for loading/saving configs
+- Real-time output logging with manual/auto save to file
+- File dialogs for loading/saving configs and logs
 - Cross-platform compatibility (Windows, macOS, Linux)
 - Implements core CLI functionalities: config management, validation, execution
 
@@ -37,6 +37,7 @@ main()
    - **Check**: Validate YAML config.
    - **Simulate**: Preview changes without modifying files.
    - **Run**: Execute the organization (with confirmation).
+   - **Save Logs**: Manually or auto-save output logs to file (after runs).
 4. **Output**: View results in the console pane.
 
 The GUI wraps the core library functions for Config loading, validation, and execution, supporting all filters and actions defined in the CLI.

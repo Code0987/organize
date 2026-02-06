@@ -95,6 +95,13 @@ class OrganizeGUI:
         self.output_text = scrolledtext.ScrolledText(output_frame, wrap=tk.WORD, font=("Consolas", 9), bg="#1E1E1E", fg="#D4D4D4")
         self.output_text.pack(fill=tk.BOTH, expand=True)
 
+        # Log save controls
+        log_controls = ttk.Frame(output_frame)
+        log_controls.pack(fill=tk.X, pady=(5, 0))
+        ttk.Button(log_controls, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
+        self.auto_save_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(log_controls, text="Auto-save logs after run", variable=self.auto_save_var).pack(side=tk.LEFT)
+
         # Menu bar
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
@@ -105,6 +112,7 @@ class OrganizeGUI:
         file_menu.add_command(label="Open...", command=self.load_config)
         file_menu.add_command(label="Save", command=self.save_config)
         file_menu.add_command(label="Save As...", command=self.save_as_config)
+        file_menu.add_command(label="Save Logs...", command=self.save_logs)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
 
@@ -204,6 +212,34 @@ class OrganizeGUI:
             self.log(f"Config error: {e}")
             messagebox.showerror("Config Error", str(e))
 
+    def save_logs(self):
+        if not self.output_text.get(1.0, tk.END).strip():
+            messagebox.showinfo("Info", "No logs to save.")
+            return
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".log",
+            filetypes=[("Log files", "*.log"), ("Text files", "*.txt"), ("All files", "*.*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(self.output_text.get(1.0, tk.END))
+                self.log(f"Logs saved to: {file_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save logs: {e}")
+
+    def _auto_save_logs(self):
+        # Auto-save with timestamped filename in current working dir
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        auto_path = Path(self.working_dir_var.get()) / f"organize_logs_{timestamp}.log"
+        try:
+            with open(auto_path, "w", encoding="utf-8") as f:
+                f.write(self.output_text.get(1.0, tk.END))
+            self.log(f"Auto-saved logs to: {auto_path}")
+        except Exception as e:
+            self.log(f"Auto-save failed: {e}")
+
     def browse_working_dir(self):
         dir_path = filedialog.askdirectory()
         if dir_path:
@@ -252,7 +288,10 @@ class OrganizeGUI:
                 for line in process.stdout:
                     self.root.after(0, self.log, line.strip())
                 process.wait()
-                self.root.after(0, self.log, f"{'Simulation' if simulate else 'Run'} completed with return code: {process.returncode}")
+                complete_msg = f"{'Simulation' if simulate else 'Run'} completed with return code: {process.returncode}"
+                self.root.after(0, self.log, complete_msg)
+                if self.auto_save_var.get():
+                    self.root.after(0, self._auto_save_logs)
             except Exception as e:
                 self.root.after(0, self.log, f"Error: {str(e)}")
                 self.root.after(0, lambda: messagebox.showerror("Error", str(e)))
@@ -274,6 +313,7 @@ A user-friendly desktop interface for the organize CLI tool.
 Features:
 - YAML config editing
 - Simulate and run organization rules
+- Log saving (manual + auto after runs)
 - Cross-platform support (Windows, macOS, Linux)
 - Custom settings and preferences
 

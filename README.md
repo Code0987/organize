@@ -254,7 +254,7 @@ It provides:
 - User-friendly YAML configuration editor
 - Buttons for simulate, run, check
 - Custom working directory, tags selection
-- Real-time output console
+- Real-time output console with log save options (manual/auto to file)
 - File dialogs for easy navigation
 - Compatible with Windows, macOS, Linux using Tkinter
 
