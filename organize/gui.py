@@ -48,6 +48,18 @@ class OrganizeGUI:
     actions:
       - delete
 """,
+            "Display Creation Date": """rules:
+  - name: Display the creation date
+    locations:
+      - path: "/"
+        max_depth: 3
+    filters:
+      - extension: .py
+      - created
+    actions:
+      - echo: "ISO Format:   {created.strftime('%Y-%m-%d')}"
+      - echo: "As timestamp: {created.timestamp() | int}"
+""",
         }
 
         self.create_widgets()
