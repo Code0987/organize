@@ -115,7 +115,7 @@ rules:
         main_pane.pack(fill=tk.BOTH, expand=True)
 
         # Left sidebar for navigation
-        sidebar = ttk.Frame(main_pane, width=250)
+        sidebar = ttk.Frame(main_pane, width=180)
         main_pane.add(sidebar, weight=1)
 
         # Config section
@@ -140,13 +140,6 @@ rules:
         dir_frame.pack(fill=tk.X)
         ttk.Entry(dir_frame, textvariable=self.working_dir_var, width=30).pack(side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Button(dir_frame, text="Browse", command=self.browse_working_dir).pack(side=tk.RIGHT)
-
-        # Run controls
-        run_frame = ttk.Labelframe(sidebar, text="Actions", padding=10)
-        run_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        ttk.Button(run_frame, text="Simulate", command=self.run_simulate).pack(fill=tk.X, pady=2)
-        ttk.Button(run_frame, text="Run", command=self.run_organize).pack(fill=tk.X, pady=2)
 
         # Main area: editor and output
         right_pane = ttk.PanedWindow(main_pane, orient=tk.VERTICAL)
@@ -179,6 +172,8 @@ rules:
         # Log save controls
         log_controls = ttk.Frame(output_frame)
         log_controls.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
+        ttk.Button(log_controls, text="Simulate", command=self.run_simulate).pack(side=tk.LEFT, padx=5)
+        ttk.Button(log_controls, text="Run", command=self.run_organize).pack(side=tk.LEFT, padx=5)
         ttk.Button(log_controls, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
         self.stop_button = ttk.Button(log_controls, text="Stop", command=self.stop_run, state="disabled")
         self.stop_button.pack(side=tk.LEFT, padx=5)
@@ -201,8 +196,6 @@ rules:
 
         tools_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Tools", menu=tools_menu)
-        tools_menu.add_command(label="Simulate", command=self.run_simulate)
-        tools_menu.add_command(label="Run", command=self.run_organize)
         tools_menu.add_command(label="Check Config", command=self.check_config)
         tools_menu.add_command(label="Show Docs", command=self.show_docs)
 
