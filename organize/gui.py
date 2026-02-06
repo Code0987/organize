@@ -224,6 +224,17 @@ class OrganizeGUI:
         dir_path = filedialog.askdirectory()
         if dir_path:
             self.working_dir_var.set(dir_path)
+            config_file = Path(dir_path) / "config.yaml"
+            if config_file.is_file():
+                try:
+                    with open(config_file, "r", encoding="utf-8") as f:
+                        self.current_config = f.read()
+                    self.editor.delete(1.0, tk.END)
+                    self.editor.insert(tk.END, self.current_config)
+                    self.config_path = config_file
+                    self.log(f"Auto-loaded config from working dir: {config_file}")
+                except Exception as e:
+                    self.log(f"Failed to auto-load config: {e}")
 
     def run_simulate(self):
         self.run_organize_command(simulate=True)
