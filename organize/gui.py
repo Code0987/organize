@@ -20,18 +20,8 @@ class OrganizeGUI:
         self.config_path = None
         self.current_config = ""
 
-        self.setup_styles()
         self.create_widgets()
         self.load_default_config()
-
-    def setup_styles(self):
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("TButton", padding=6, relief="flat")
-        style.configure("TLabel")
-        style.configure("TFrame")
-        style.configure("TLabelframe")
-        style.configure("TLabelframe.Label")
 
     def create_widgets(self):
         # Main paned window
@@ -92,7 +82,7 @@ class OrganizeGUI:
         output_frame = ttk.Labelframe(right_pane, text="Output", padding=10)
         right_pane.add(output_frame, weight=1)
 
-        self.output_text = scrolledtext.ScrolledText(output_frame, wrap=tk.WORD, font=("Consolas", 9), bg="#1E1E1E", fg="#D4D4D4")
+        self.output_text = scrolledtext.ScrolledText(output_frame, wrap=tk.WORD, font=("Consolas", 9))
         self.output_text.pack(fill=tk.BOTH, expand=True)
 
         # Log save controls
