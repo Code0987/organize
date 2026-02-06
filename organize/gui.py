@@ -41,31 +41,19 @@ class OrganizeGUI:
         ttk.Button(config_frame, text="Save Config", command=self.save_config).pack(fill=tk.X, pady=2)
         ttk.Button(config_frame, text="Check Config", command=self.check_config).pack(fill=tk.X, pady=2)
 
+        self.working_dir_var = tk.StringVar(value=str(Path.home()))
+        ttk.Label(config_frame, text="Working Dir:").pack(anchor=tk.W)
+        dir_frame = ttk.Frame(config_frame)
+        dir_frame.pack(fill=tk.X)
+        ttk.Entry(dir_frame, textvariable=self.working_dir_var, width=30).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(dir_frame, text="Browse", command=self.browse_working_dir).pack(side=tk.RIGHT)
+
         # Run controls
         run_frame = ttk.Labelframe(sidebar, text="Actions", padding=10)
         run_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         ttk.Button(run_frame, text="Simulate", command=self.run_simulate).pack(fill=tk.X, pady=2)
         ttk.Button(run_frame, text="Run", command=self.run_organize).pack(fill=tk.X, pady=2)
-
-        # Settings
-        settings_frame = ttk.Labelframe(sidebar, text="Settings", padding=10)
-        settings_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        self.working_dir_var = tk.StringVar(value=str(Path.home()))
-        ttk.Label(settings_frame, text="Working Dir:").pack(anchor=tk.W)
-        dir_frame = ttk.Frame(settings_frame)
-        dir_frame.pack(fill=tk.X)
-        ttk.Entry(dir_frame, textvariable=self.working_dir_var, width=30).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(dir_frame, text="Browse", command=self.browse_working_dir).pack(side=tk.RIGHT)
-
-        self.tags_var = tk.StringVar()
-        ttk.Label(settings_frame, text="Tags (comma sep):").pack(anchor=tk.W)
-        ttk.Entry(settings_frame, textvariable=self.tags_var).pack(fill=tk.X)
-
-        self.skip_tags_var = tk.StringVar()
-        ttk.Label(settings_frame, text="Skip Tags:").pack(anchor=tk.W)
-        ttk.Entry(settings_frame, textvariable=self.skip_tags_var).pack(fill=tk.X)
 
         # Main area: editor and output
         right_pane = ttk.PanedWindow(main_pane, orient=tk.VERTICAL)
@@ -251,8 +239,6 @@ class OrganizeGUI:
             try:
                 config_text = self.editor.get(1.0, tk.END).strip()
                 config = Config.from_string(config_text, self.config_path)
-                tags = [t.strip() for t in self.tags_var.get().split(",") if t.strip()]
-                skip_tags = [t.strip() for t in self.skip_tags_var.get().split(",") if t.strip()]
                 working_dir = self.working_dir_var.get()
 
                 # Use Default output but redirect prints? For GUI, capture via custom or subprocess for simplicity
@@ -262,10 +248,6 @@ class OrganizeGUI:
                     cmd.append(str(self.config_path))
                 if working_dir:
                     cmd.extend(["--working-dir", working_dir])
-                if tags:
-                    cmd.extend(["--tags", ",".join(tags)])
-                if skip_tags:
-                    cmd.extend(["--skip-tags", ",".join(skip_tags)])
 
                 # Run as subprocess to get output
                 process = subprocess.Popen(
