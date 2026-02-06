@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -19,6 +20,7 @@ class OrganizeGUI:
 
         self.config_path = None
         self.current_config = ""
+        self._highlight_timer = None
 
         self.create_widgets()
         self.load_default_config()
@@ -65,6 +67,12 @@ class OrganizeGUI:
 
         self.editor = scrolledtext.ScrolledText(editor_frame, wrap=tk.WORD, font=("Consolas", 10), undo=True)
         self.editor.pack(fill=tk.BOTH, expand=True)
+        # YAML syntax tags
+        self.editor.tag_configure("key", foreground="blue")
+        self.editor.tag_configure("string", foreground="green")
+        self.editor.tag_configure("comment", foreground="gray")
+        self.editor.tag_configure("number", foreground="purple")
+        self.editor.bind("<KeyRelease>", self._debounce_highlight)
 
         # Output console
         output_frame = ttk.Labelframe(right_pane, text="Output", padding=10)
@@ -114,6 +122,39 @@ class OrganizeGUI:
     def clear_output(self):
         self.output_text.delete(1.0, tk.END)
 
+    def highlight_yaml(self):
+        # Basic YAML syntax highlighting using tags
+        self.editor.tag_remove("key", "1.0", "end")
+        self.editor.tag_remove("string", "1.0", "end")
+        self.editor.tag_remove("comment", "1.0", "end")
+        self.editor.tag_remove("number", "1.0", "end")
+        text = self.editor.get("1.0", "end")
+        # Keys (before :)
+        for match in re.finditer(r"^(\s*)(\w+):", text, re.MULTILINE):
+            start = self.editor.index(f"1.0 + {match.start(2)} chars")
+            end = self.editor.index(f"1.0 + {match.end(2)} chars")
+            self.editor.tag_add("key", start, end)
+        # Strings
+        for match in re.finditer(r'["\']([^"\']*)["\']', text):
+            start = self.editor.index(f"1.0 + {match.start(1)} chars")
+            end = self.editor.index(f"1.0 + {match.end(1)} chars")
+            self.editor.tag_add("string", start, end)
+        # Comments
+        for match in re.finditer(r"#.*$", text, re.MULTILINE):
+            start = self.editor.index(f"1.0 + {match.start()} chars")
+            end = self.editor.index(f"1.0 + {match.end()} chars")
+            self.editor.tag_add("comment", start, end)
+        # Numbers
+        for match in re.finditer(r":\s*(\d+)", text):
+            start = self.editor.index(f"1.0 + {match.start(1)} chars")
+            end = self.editor.index(f"1.0 + {match.end(1)} chars")
+            self.editor.tag_add("number", start, end)
+
+    def _debounce_highlight(self, event=None):
+        if hasattr(self, "_highlight_timer"):
+            self.root.after_cancel(self._highlight_timer)
+        self._highlight_timer = self.root.after(300, self.highlight_yaml)
+
     def load_default_config(self):
         try:
             config_path = find_config()
@@ -122,12 +163,14 @@ class OrganizeGUI:
                 self.current_config = f.read()
             self.editor.delete(1.0, tk.END)
             self.editor.insert(tk.END, self.current_config)
+            self.highlight_yaml()
             self.log(f"Loaded default config from: {config_path}")
         except Exception:
             # Create example if no config
             self.current_config = EXAMPLE_CONFIG
             self.editor.delete(1.0, tk.END)
             self.editor.insert(tk.END, self.current_config)
+            self.highlight_yaml()
             self.log("No default config found, loaded example.")
 
     def new_config(self):
@@ -135,6 +178,7 @@ class OrganizeGUI:
         self.current_config = EXAMPLE_CONFIG
         self.editor.delete(1.0, tk.END)
         self.editor.insert(tk.END, self.current_config)
+        self.highlight_yaml()
         self.clear_output()
         self.log("New configuration created.")
 
@@ -149,6 +193,7 @@ class OrganizeGUI:
                 self.editor.delete(1.0, tk.END)
                 self.editor.insert(tk.END, self.current_config)
                 self.config_path = Path(file_path)
+                self.highlight_yaml()
                 self.log(f"Loaded config from: {file_path}")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load config: {e}")
@@ -176,6 +221,7 @@ class OrganizeGUI:
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(self.current_config)
                 self.config_path = Path(file_path)
+                self.highlight_yaml()
                 self.log(f"Saved config as: {file_path}")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to save config: {e}")
@@ -232,6 +278,7 @@ class OrganizeGUI:
                     self.editor.delete(1.0, tk.END)
                     self.editor.insert(tk.END, self.current_config)
                     self.config_path = config_file
+                    self.highlight_yaml()
                     self.log(f"Auto-loaded config from working dir: {config_file}")
                 except Exception as e:
                     self.log(f"Failed to auto-load config: {e}")
