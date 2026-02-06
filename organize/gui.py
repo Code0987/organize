@@ -151,7 +151,7 @@ class OrganizeGUI:
             self.editor.tag_add("number", start, end)
 
     def _debounce_highlight(self, event=None):
-        if hasattr(self, "_highlight_timer"):
+        if hasattr(self, "_highlight_timer") and self._highlight_timer is not None:
             self.root.after_cancel(self._highlight_timer)
         self._highlight_timer = self.root.after(300, self.highlight_yaml)
 
