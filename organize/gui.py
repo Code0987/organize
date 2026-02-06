@@ -68,14 +68,16 @@ class OrganizeGUI:
 
         # Output console
         output_frame = ttk.Labelframe(right_pane, text="Output", padding=10)
-        right_pane.add(output_frame, weight=1)
+        right_pane.add(output_frame, weight=2)
+        output_frame.rowconfigure(0, weight=1)
+        output_frame.columnconfigure(0, weight=1)
 
         self.output_text = scrolledtext.ScrolledText(output_frame, wrap=tk.WORD, font=("Consolas", 9))
-        self.output_text.pack(fill=tk.BOTH, expand=True)
+        self.output_text.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
         # Log save controls
         log_controls = ttk.Frame(output_frame)
-        log_controls.pack(fill=tk.X, pady=(5, 0))
+        log_controls.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
         ttk.Button(log_controls, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
         self.auto_save_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(log_controls, text="Auto-save logs after run", variable=self.auto_save_var).pack(side=tk.LEFT)
