@@ -21,6 +21,7 @@ class OrganizeGUI:
         self.config_path = None
         self.current_config = ""
         self._highlight_timer = None
+        self.current_process = None
         # Example configs
         self.examples = {
             "Basic PDF Organizer": """rules:
@@ -179,6 +180,8 @@ rules:
         log_controls = ttk.Frame(output_frame)
         log_controls.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
         ttk.Button(log_controls, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
+        self.stop_button = ttk.Button(log_controls, text="Stop", command=self.stop_run, state="disabled")
+        self.stop_button.pack(side=tk.LEFT, padx=5)
         self.auto_save_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(log_controls, text="Auto-save logs after run", variable=self.auto_save_var).pack(side=tk.LEFT)
 
@@ -357,6 +360,16 @@ rules:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to save logs: {e}")
 
+    def stop_run(self):
+        if self.current_process and self.current_process.poll() is None:
+            try:
+                self.current_process.terminate()
+                self.log("Process stopped by user.")
+            except Exception as e:
+                self.log(f"Stop error: {e}")
+        self.stop_button.config(state="disabled")
+        self.current_process = None
+
     def _auto_save_logs(self):
         # Auto-save with timestamped filename in current working dir
         import datetime
@@ -397,6 +410,8 @@ rules:
         self.clear_output()
         self.log(f"Starting {'simulation' if simulate else 'organize run'}...")
         self.save_config()  # auto save before run
+        self.stop_button.config(state="normal")
+        self.current_process = None
 
         def run_thread():
             try:
@@ -420,6 +435,7 @@ rules:
                     text=True,
                     cwd=working_dir
                 )
+                self.current_process = process
                 for line in process.stdout:
                     self.root.after(0, self.log, line.strip())
                 process.wait()
@@ -430,8 +446,14 @@ rules:
             except Exception as e:
                 self.root.after(0, self.log, f"Error: {str(e)}")
                 self.root.after(0, lambda e=e: messagebox.showerror("Error", str(e)))
+            finally:
+                self.root.after(0, self._finish_run)
 
         threading.Thread(target=run_thread, daemon=True).start()
+
+    def _finish_run(self):
+        self.stop_button.config(state="disabled")
+        self.current_process = None
 
     def show_docs(self):
         try:
@@ -447,7 +469,7 @@ A user-friendly desktop interface for the organize CLI tool.
 
 Features:
 - YAML config editing
-- Simulate and run organization rules
+- Simulate and run organization rules (with Stop button for long runs)
 - Log saving (manual + auto after runs)
 - Cross-platform support (Windows, macOS, Linux)
 - Custom settings and preferences
