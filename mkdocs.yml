@@ -9,6 +9,7 @@ nav:
   - Locations: locations.md
   - Filters: filters.md
   - Actions: actions.md
+  - Desktop GUI: gui.md
   - Docker: docker.md
   - Changelog: changelog.md
   - Migrating from older versions: migrating.md

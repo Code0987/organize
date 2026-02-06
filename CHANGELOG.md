@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Added desktop GUI application (`organize-gui`) with modern interface for config editing, simulation, and execution.
+- GUI supports core functionalities: rules, filters, actions, customization, cross-platform.
+- Documentation and user guide added.
 - Fixed #438 (`filecontent` filter fails for PDFs when `pdftotext` isn't installed, instead of falling back to `pdfminer`)
 
 ## v3.3.0 (2024-11-25)

@@ -19,6 +19,9 @@ classifiers = [
     # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
+    "Environment :: X11 Applications",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
     "Intended Audience :: End Users/Desktop",
     "Natural Language :: English",
     "Operating System :: OS Independent",
@@ -57,6 +60,7 @@ docs = [
 
 [project.scripts]
 organize = "organize.cli:cli"
+organize-gui = "organize.gui:main"
 
 [dependency-groups]
 dev = [

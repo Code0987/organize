@@ -246,6 +246,25 @@ Options:
   -h --help                       Show this help page.
 ```
 
+## Desktop GUI
+
+A modern cross-platform desktop application is available via `organize-gui` (after installation).
+
+It provides:
+- User-friendly YAML configuration editor
+- Buttons for simulate, run, check
+- Custom working directory, tags selection
+- Real-time output console
+- File dialogs for easy navigation
+- Compatible with Windows, macOS, Linux using Tkinter
+
+Launch with:
+```bash
+organize-gui
+```
+
+See the full documentation for more details on features.
+
 ## Other donation options:
 
 ETH:
