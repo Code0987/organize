@@ -12,8 +12,13 @@ on:
       - main
   workflow_dispatch:
 
+# Offscreen Qt so organize_gui widget tests run in CI without a display.
+env:
+  QT_QPA_PLATFORM: offscreen
+
 jobs:
-  build:
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -25,22 +30,75 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: "${{ matrix.python-version }}"
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install project (core + gui + dev)
+        run: uv sync --extra gui --group dev
+
+      - name: Version info
+        run: uv run python -m organize --version
+
+      - name: Install system libs for Qt (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 \
+            libxkbcommon0 \
+            libdbus-1-3 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xinerama0 \
+            libxcb-xfixes0
+
+      - name: Test with pytest
+        run: uv run python -m pytest tests -q --tb=short
+
+      - name: Type-check with MyPy
+        run: uv run mypy organize organize_gui main.py
+
+  package:
+    name: build package
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
 
-      - name: Version info
+      - name: Build sdist and wheel
         run: |
-          uv run python main.py --version
+          uv build
+          ls -la dist/
 
-      - name: Test with pytest
+      - name: Verify package metadata
         run: |
-          uv run python -m pytest tests
+          uvx twine check dist/*
 
-      - name: Check with MyPy
+      - name: Install wheel in a clean environment
         run: |
-          uv run mypy .
+          uv venv .venv-pkg
+          WHEEL=$(ls dist/*.whl | head -n1)
+          uv pip install --python .venv-pkg "${WHEEL}"
+          .venv-pkg/bin/python -c "from organize.__version__ import __version__; import organize_gui; print('version', __version__)"
+          .venv-pkg/bin/organize --version
+          .venv-pkg/bin/python -c "from organize_gui.app import run_app; print('organize_gui importable')"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          retention-days: 14

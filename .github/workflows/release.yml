@@ -1,0 +1,187 @@
+name: release
+
+# Publish to PyPI and create a GitHub Release when a version tag is pushed.
+# Tag format: vX.Y.Z (example: v3.3.1)
+#
+# Required repository secrets:
+#   PYPI_API_TOKEN  — PyPI API token with upload rights for organize-tool
+#                     (optional if using Trusted Publishing / OIDC below)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v3.3.1). Leave empty to use the current commit only for a dry package build."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  id-token: write  # for PyPI trusted publishing (OIDC)
+
+env:
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  test:
+    name: test before release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          # When dispatching with a tag input, still checkout that ref if provided
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install system libs for Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 libxkbcommon0 libdbus-1-3 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xfixes0
+
+      - name: Install project
+        run: uv sync --extra gui --group dev
+
+      - name: Run tests
+        run: uv run python -m pytest tests -q --tb=short
+
+      - name: Type-check
+        run: uv run mypy organize organize_gui main.py
+
+  build:
+    name: build distributions
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          uv build
+          ls -la dist/
+
+      - name: Check distributions
+        run: uvx twine check dist/*
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+  publish-pypi:
+    name: publish to PyPI
+    runs-on: ubuntu-latest
+    needs: build
+    # Only publish for real version tags, not manual dry-runs without a tag
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+    environment:
+      name: pypi
+      url: https://pypi.org/project/organize-tool/
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true
+          verbose: true
+          # Uncomment the next line if not using Trusted Publishing:
+          # password: ${{ secrets.PYPI_API_TOKEN }}
+
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build, publish-pypi]
+    # Create a release when the build succeeded and PyPI either published or was skipped
+    # (skipped only on dry workflow_dispatch without a tag — that path is filtered below).
+    if: >-
+      always()
+      && needs.build.result == 'success'
+      && (needs.publish-pypi.result == 'success' || needs.publish-pypi.result == 'skipped')
+      && (github.event_name == 'push'
+          || (github.event_name == 'workflow_dispatch' && inputs.tag != ''))
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: Resolve tag name
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog notes
+        id: notes
+        shell: bash
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          TAG="${{ steps.meta.outputs.tag }}"
+          python3 << 'PY'
+          import pathlib, re, os
+          version = os.environ["VERSION"]
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          # Match "## vX.Y.Z (...)" or "## [X.Y.Z]" style sections
+          pattern = re.compile(
+              rf"## \[?v?{re.escape(version)}\]?[^\n]*\n(.*?)(?=\n## |\Z)",
+              re.DOTALL,
+          )
+          match = pattern.search(text)
+          notes = match.group(1).strip() if match else f"Release {os.environ['TAG']}"
+          pathlib.Path("release_notes.md").write_text(notes + "\n", encoding="utf-8")
+          print(notes[:500])
+          PY
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          body_path: release_notes.md
+          files: dist/*
+          draft: false
+          prerelease: ${{ contains(steps.meta.outputs.tag, 'a') || contains(steps.meta.outputs.tag, 'b') || contains(steps.meta.outputs.tag, 'rc') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

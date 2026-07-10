@@ -19,6 +19,7 @@ classifiers = [
     # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
+    "Environment :: X11 Applications :: Qt",
     "Intended Audience :: End Users/Desktop",
     "Natural Language :: English",
     "Operating System :: OS Independent",
@@ -54,9 +55,16 @@ docs = [
     "mkdocs>=1.5.3,<2.0.0",
     "mkdocstrings[python]>=0.24.0,<1.0.0",
 ]
+gui = [
+    "PyQt6>=6.5.0,<7.0.0",
+]
 
 [project.scripts]
 organize = "organize.cli:cli"
+organize-gui = "organize_gui.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["organize*", "organize_gui*"]
 
 [dependency-groups]
 dev = [
@@ -90,8 +98,15 @@ module = [
     "textract",
     "requests",
     "macos_tags",
+    "PyQt6",
+    "PyQt6.*",
 ]
 ignore_missing_imports = true
+
+# GUI widgets use Qt dynamically; keep core organize strictly typed.
+[[tool.mypy.overrides]]
+module = ["organize_gui.*"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"

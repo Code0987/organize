@@ -79,6 +79,79 @@ pip install -U organize-tool
 
 This command can also be used to update to the newest version. Now you can run `organize --help` to check if the installation was successful.
 
+### Graphical user interface (optional)
+
+organize includes an optional **PyQt6** desktop GUI for creating, editing and
+running rules interactively (forms for locations, filters and actions — not just
+raw YAML).
+
+Install with the `gui` extra:
+
+```bash
+pip install -U "organize-tool[gui]"
+```
+
+From a source checkout (recommended with a virtual environment):
+
+```bash
+# using pip
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[gui]"
+
+# or using uv
+uv venv && uv pip install -e ".[gui]"
+```
+
+Launch the GUI:
+
+```bash
+organize-gui
+# or
+python -m organize_gui
+# open a config file directly:
+organize-gui path/to/config.yaml
+```
+
+**GUI features:**
+
+| Feature | Description |
+| --- | --- |
+| Interactive rule editing | Add/remove/reorder rules; edit name, targets, tags, filter mode |
+| Locations | Browse for paths; set depth and exclude patterns |
+| Filters & actions | Pick types from dropdowns and edit parameters with form fields |
+| Dry-run | **Dry-run (simulate)** runs rules without changing files (`Ctrl+D`) |
+| Live run | **Run** applies rules after confirmation (`Ctrl+R`) |
+| Logs & errors | Bottom panel shows output; use **Save logs…** to write a text file |
+| Validate / YAML preview | Check config validity and inspect generated YAML |
+
+Typical workflow: open or create a config → edit rules in the forms → **Dry-run**
+to verify → **Run** when you are ready → save logs if you need a record.
+
+### Continuous integration and releases
+
+GitHub Actions workflows live under `.github/workflows/`:
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `tests.yml` | push / PR to `main` | Test matrix (Linux/macOS/Windows × Python 3.9–3.12), including `organize_gui` (offscreen Qt), mypy, then build + twine-check the package |
+| `package.yml` | changes to packaging paths | Build sdist/wheel and verify a clean install |
+| `release.yml` | tag `v*` (e.g. `v3.3.1`) | Test → build → publish to PyPI → create GitHub Release with wheels/sdists and changelog notes |
+| `publish-docker-image.yml` | GitHub Release published | Build and push the Docker image |
+
+**To cut a release:**
+
+1. Bump the version in `pyproject.toml` and `organize/__version__.py`, and update `CHANGELOG.md`.
+2. Commit and push to `main`; wait for CI to pass.
+3. Tag and push:
+   ```bash
+   git tag v3.3.1
+   git push origin v3.3.1
+   ```
+4. The `release` workflow publishes to [PyPI](https://pypi.org/project/organize-tool/) and opens a GitHub Release.
+
+**PyPI authentication:** configure [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) for this repository and the `release.yml` workflow (recommended). Alternatively, set a `PYPI_API_TOKEN` repository secret and pass it as `password` in the publish step.
+
 ### Create your first rule
 
 In your shell, run `organize new` and then `organize edit` to edit the configuration:

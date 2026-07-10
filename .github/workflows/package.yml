@@ -1,0 +1,65 @@
+name: package
+
+# Standalone package build — verifies sdist/wheel can be built and installed.
+# Also runs on demand for quick packaging checks without the full OS matrix.
+
+on:
+  push:
+    paths:
+      - "pyproject.toml"
+      - "organize/**"
+      - "organize_gui/**"
+      - "README.md"
+      - "LICENSE.txt"
+      - ".github/workflows/package.yml"
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "organize/**"
+      - "organize_gui/**"
+      - "README.md"
+      - "LICENSE.txt"
+      - ".github/workflows/package.yml"
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build & verify wheel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          uv build
+          echo "=== dist/ ==="
+          ls -lah dist/
+
+      - name: Twine check
+        run: uvx twine check dist/*
+
+      - name: Install from wheel (clean venv)
+        run: |
+          uv venv .venv-pkg
+          WHEEL=$(ls dist/*.whl | head -n1)
+          uv pip install --python .venv-pkg "${WHEEL}"
+          uv pip install --python .venv-pkg "PyQt6>=6.5.0,<7.0.0"
+          .venv-pkg/bin/organize --version
+          .venv-pkg/bin/python -c "import organize, organize_gui; print('core+gui OK')"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-dist
+          path: dist/
+          retention-days: 7
