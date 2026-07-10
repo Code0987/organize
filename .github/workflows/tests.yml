@@ -98,10 +98,13 @@ jobs:
         run: |
           uv venv .venv-pkg
           WHEEL=$(ls dist/*.whl | head -n1)
+          # Core wheel (no gui extra)
           uv pip install --python .venv-pkg "${WHEEL}"
           .venv-pkg/bin/python -c "from organize.__version__ import __version__; import organize_gui; print('version', __version__)"
           .venv-pkg/bin/organize --version
-          .venv-pkg/bin/python -c "from organize_gui.app import run_app; print('organize_gui importable')"
+          # GUI is an optional extra — install PyQt6 then verify the app entry imports
+          uv pip install --python .venv-pkg "PyQt6>=6.5.0,<7.0.0"
+          .venv-pkg/bin/python -c "from organize_gui.app import run_app; print('organize_gui app importable')"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
