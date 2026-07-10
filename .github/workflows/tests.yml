@@ -35,20 +35,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install project (core + gui + dev)
-        run: uv sync --extra gui --group dev
-
-      - name: Version info
-        run: uv run python -m organize --version
-
+      # PyQt6 wheels need these shared libs on headless Ubuntu runners.
       - name: Install system libs for Qt (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
+            libegl1 \
             libgl1 \
+            libopengl0 \
+            libglib2.0-0 \
+            libfontconfig1 \
             libxkbcommon0 \
             libdbus-1-3 \
+            libx11-xcb1 \
+            libxcb1 \
             libxcb-cursor0 \
             libxcb-icccm4 \
             libxcb-image0 \
@@ -58,6 +59,12 @@ jobs:
             libxcb-shape0 \
             libxcb-xinerama0 \
             libxcb-xfixes0
+
+      - name: Install project (core + gui + dev)
+        run: uv sync --extra gui --group dev
+
+      - name: Version info
+        run: uv run python -m organize --version
 
       - name: Test with pytest
         run: uv run python -m pytest tests -q --tb=short
