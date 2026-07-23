@@ -44,7 +44,7 @@ dependencies = [
 ]
 
 [project.urls]
-repository = "https://github.com/tfeldmann/organize"
+repository = "https://github.com/Code0987/organize"
 documentation = "https://organize.readthedocs.io"
 
 [project.optional-dependencies]
