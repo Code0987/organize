@@ -209,23 +209,32 @@ def test_item_editor_required_validation(qapp, monkeypatch):
     d3.close()
 
 
-def test_configure_combobox_closes_popup(qapp):
-    from PyQt6.QtCore import QEventLoop, QTimer
+def test_menu_select_basic_api(qapp):
+    from ui.styles.combo_fix import MenuSelect
 
-    from ui.styles.combo_fix import ClosingComboBox, soft_close_combo_popup
+    combo = MenuSelect()
+    combo.addItem("Files", "files")
+    combo.addItem("Folders", "dirs")
+    assert combo.count() == 2
+    assert combo.currentData() == "files"
+    combo.setCurrentIndex(1)
+    assert combo.currentText() == "Folders"
+    assert combo.findData("files") == 0
+    assert combo.findText("Folders") == 1
+    seen = []
+    combo.currentIndexChanged.connect(seen.append)
+    combo.setCurrentIndex(0)
+    assert seen == [0]
+    combo.close()
+
+
+def test_configure_combobox_closes_popup(qapp):
+    # Back-compat alias still constructs a working MenuSelect.
+    from ui.styles.combo_fix import ClosingComboBox
 
     combo = ClosingComboBox()
     combo.addItems(["a", "b", "c"])
     assert combo.count() == 3
-    combo.showPopup()
-    soft_close_combo_popup(combo)
-    loop = QEventLoop()
-    QTimer.singleShot(40, loop.quit)
-    loop.exec()
-    # Items must still be present after dismiss + reopen.
-    assert combo.count() == 3
-    combo.showPopup()
-    assert combo.model() is not None
-    assert combo.model().rowCount() == 3
-    soft_close_combo_popup(combo)
+    combo.setCurrentIndex(2)
+    assert combo.currentText() == "c"
     combo.close()

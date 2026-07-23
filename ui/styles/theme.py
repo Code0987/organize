@@ -192,38 +192,40 @@ QLineEdit, QSpinBox, QTextEdit, QPlainTextEdit {{
     selection-color: {text};
 }}
 
-/* Keep QComboBox chrome minimal. Heavy stylesheet on the popup view is a
-   known cause of "dropdown stays open" under Wayland/WSLg. Popup colors
-   come from the QPalette instead. */
-QComboBox {{
-    background-color: {input_bg};
-    border: 1px solid {border_strong};
-    border-radius: 4px;
-    padding: 4px 28px 4px 8px;
-    color: {text};
-    min-height: 1.2em;
-}}
-
 QLineEdit#RuleNameEdit {{
     font-size: 16px;
     font-weight: 600;
     padding: 10px 12px;
 }}
 
-QLineEdit:focus, QSpinBox:focus, QTextEdit:focus, QComboBox:focus {{
+QLineEdit:focus, QSpinBox:focus, QTextEdit:focus {{
     border: 1px solid {focus_border};
 }}
 
-QComboBox::drop-down {{
-    subcontrol-origin: padding;
-    subcontrol-position: center right;
-    width: 22px;
-    border: none;
-    background: transparent;
+/* Menu-based dropdown (MenuSelect) — QMenu popups are reliable on WSLg. */
+QToolButton#MenuSelectButton {{
+    background-color: {input_bg};
+    border: 1px solid {border_strong};
+    border-radius: 6px;
+    padding: 7px 12px;
+    color: {text};
+    text-align: left;
+    min-height: 1.2em;
 }}
 
-/* Do NOT style QComboBox QAbstractItemView / ::item here — that breaks
-   click-to-close on several platforms when an app-wide sheet is set. */
+QToolButton#MenuSelectButton:hover {{
+    border-color: {focus_border};
+}}
+
+QToolButton#MenuSelectButton:pressed, QToolButton#MenuSelectButton:open {{
+    border-color: {focus_border};
+    background-color: {hover_bg};
+}}
+
+QToolButton#MenuSelectButton::menu-indicator {{
+    image: none;
+    width: 0px;
+}}
 
 QListWidget {{
     background-color: {card_bg};

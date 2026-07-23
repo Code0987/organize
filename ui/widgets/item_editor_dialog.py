@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from PyQt6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -20,7 +19,7 @@ from PyQt6.QtWidgets import (
 from ui.models.pipeline_item import ItemKind, PipelineItem
 from ui.schemas.catalog import action_schema, filter_schema, list_action_names, list_filter_names
 from ui.schemas.field_spec import ItemSchema
-from ui.styles.combo_fix import ClosingComboBox
+from ui.styles.combo_fix import MenuSelect
 from ui.widgets.form_field_widget import FormFieldWidget
 
 
@@ -48,7 +47,7 @@ class ItemEditorDialog(QDialog):
 
         form = QFormLayout()
         form.setSpacing(10)
-        self.type_combo = ClosingComboBox()
+        self.type_combo = MenuSelect()
         names = list_filter_names() if kind == "filter" else list_action_names()
         for name in names:
             schema = filter_schema(name) if kind == "filter" else action_schema(name)

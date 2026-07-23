@@ -6,7 +6,6 @@ from typing import Any, List, Optional
 
 from PyQt6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QFormLayout,
     QLabel,
     QLineEdit,
@@ -17,7 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.schemas.field_spec import FieldSpec
-from ui.styles.combo_fix import ClosingComboBox
+from ui.styles.combo_fix import MenuSelect
 
 
 class FormFieldWidget(QWidget):
@@ -53,7 +52,7 @@ class FormFieldWidget(QWidget):
     def _create_editor(self) -> QWidget:
         ftype = self.spec.field_type
         if ftype == "choice":
-            combo = ClosingComboBox()
+            combo = MenuSelect()
             combo.addItems(list(self.spec.choices))
             return combo
         if ftype == "int":
@@ -81,7 +80,7 @@ class FormFieldWidget(QWidget):
         editor = self._editor
         if isinstance(editor, QCheckBox):
             editor.setChecked(bool(value))
-        elif isinstance(editor, QComboBox):
+        elif isinstance(editor, MenuSelect):
             text = str(value)
             idx = editor.findText(text)
             if idx >= 0:
@@ -105,7 +104,7 @@ class FormFieldWidget(QWidget):
         ftype = self.spec.field_type
         if isinstance(editor, QCheckBox):
             return editor.isChecked()
-        if isinstance(editor, QComboBox):
+        if isinstance(editor, MenuSelect):
             return editor.currentText()
         if isinstance(editor, QSpinBox):
             return editor.value()

@@ -1,181 +1,185 @@
-"""Reliable QComboBox that dismisses its popup after a choice.
+"""Dropdown controls that work reliably under Wayland / WSLg.
 
-Under Wayland/WSLg, styled QComboBox popups often stay open after a click.
-We close them explicitly — but *without* destroying the popup container, which
-left the list empty on the second open.
+Native :class:`~PyQt6.QtWidgets.QComboBox` popups frequently misbehave when an
+application stylesheet is set (stuck open, empty second open, or dead clicks).
+
+This module provides :class:`MenuSelect` — a QComboBox-like control built on
+:class:`~PyQt6.QtWidgets.QToolButton` + :class:`~PyQt6.QtWidgets.QMenu`, which
+closes and reopens correctly on every platform we care about.
+
+For call-site compatibility the old names ``ClosingComboBox`` and
+``configure_combobox`` still exist as aliases.
 """
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Iterable, List, Optional, Sequence, Tuple
 
-from PyQt6.QtCore import QEvent, QObject, Qt, QTimer
-from PyQt6.QtWidgets import QApplication, QComboBox, QListView, QWidget
-
-
-_PATCH_FLAG = "_organize_combo_popup_fixed"
-
-
-class _PopupCloseFilter(QObject):
-    """Select the clicked row and dismiss the popup."""
-
-    def __init__(self, combo: QComboBox) -> None:
-        super().__init__(combo)
-        self._combo = combo
-        self._closing = False
-
-    def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802
-        if event.type() != QEvent.Type.MouseButtonRelease:
-            return super().eventFilter(obj, event)
-
-        view = self._combo.view()
-        if view is None or obj is not view.viewport():
-            return super().eventFilter(obj, event)
-
-        try:
-            if event.button() != Qt.MouseButton.LeftButton:  # type: ignore[attr-defined]
-                return super().eventFilter(obj, event)
-            pos = event.position().toPoint()  # type: ignore[attr-defined]
-        except Exception:
-            return super().eventFilter(obj, event)
-
-        index = view.indexAt(pos)
-        if not index.isValid():
-            return super().eventFilter(obj, event)
-
-        if self._closing:
-            return True
-        self._closing = True
-        try:
-            row = index.row()
-            if self._combo.currentIndex() != row:
-                self._combo.setCurrentIndex(row)
-            # Soft-dismiss only — never destroy the popup host widget.
-            soft_close_combo_popup(self._combo)
-            self._combo.activated.emit(row)
-            self._combo.textActivated.emit(self._combo.itemText(row))
-            QTimer.singleShot(0, lambda: soft_close_combo_popup(self._combo))
-        finally:
-            # Allow future opens/selections.
-            QTimer.singleShot(50, lambda: setattr(self, "_closing", False))
-        return True
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QSizePolicy,
+    QToolButton,
+    QMenu,
+    QWidget,
+)
 
 
-def soft_close_combo_popup(combo: QComboBox) -> None:
-    """Hide the popup without destroying its view/container.
+class MenuSelect(QWidget):
+    """QComboBox-compatible dropdown implemented with a button menu.
 
-    Calling ``close()`` on Qt's internal popup frame was wiping the item list
-    for subsequent opens. Stick to hidePopup + hide on the transient window.
+    Supported API (subset used by this app)::
+
+        addItem(text, userData=None)
+        addItems(texts)
+        count() / itemText(i) / currentText()
+        currentIndex() / setCurrentIndex(i)
+        currentData() / findData(value) / findText(text)
+        currentIndexChanged(int)
+        activated(int)
     """
-    try:
-        QComboBox.hidePopup(combo)
-    except Exception:
-        pass
 
-    view = combo.view()
-    if view is None:
-        return
-
-    # Hide the transient popup window if Qt placed the view in one — do not close().
-    try:
-        top = view.window()
-        if top is not None and top is not combo and top is not combo.window():
-            top.hide()
-    except Exception:
-        pass
-
-
-def _ensure_list_view(combo: QComboBox) -> QListView:
-    """Return a healthy list view for *combo*, recreating it if needed."""
-    view = combo.view()
-    # sip/cpp object may be deleted after a hard close; treat as missing.
-    try:
-        alive = view is not None and view.model() is not None
-        if alive and isinstance(view, QListView):
-            # Touch a property to detect deleted C++ wrappers.
-            _ = view.isVisible()
-            return view  # type: ignore[return-value]
-    except RuntimeError:
-        alive = False
-
-    view = QListView(combo)
-    view.setUniformItemSizes(True)
-    view.setMouseTracking(True)
-    view.setAutoFillBackground(True)
-    view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    view.setSelectionBehavior(QListView.SelectionBehavior.SelectRows)
-    view.setSelectionMode(QListView.SelectionMode.SingleSelection)
-    combo.setView(view)
-    return view
-
-
-def configure_combobox(combo: QComboBox) -> QComboBox:
-    """Harden *combo* so its dropdown closes after a selection and reopens with items."""
-    if bool(combo.property(_PATCH_FLAG)):
-        # Still re-bind the view in case a previous close destroyed it.
-        _ensure_list_view(combo)
-        return combo
-
-    view = _ensure_list_view(combo)
-    combo.setMaxVisibleItems(16)
-    combo.setEditable(False)
-
-    def _on_activated(*_args: object) -> None:
-        soft_close_combo_popup(combo)
-        QTimer.singleShot(0, lambda: soft_close_combo_popup(combo))
-
-    combo.activated.connect(_on_activated)
-    combo.textActivated.connect(_on_activated)
-
-    popup_filter = _PopupCloseFilter(combo)
-    view.viewport().installEventFilter(popup_filter)
-    combo.setProperty("_organize_combo_filter", popup_filter)
-    combo.setProperty(_PATCH_FLAG, True)
-    return combo
-
-
-class ClosingComboBox(QComboBox):
-    """Drop-in QComboBox that dismisses after a selection and keeps items intact."""
+    currentIndexChanged = pyqtSignal(int)
+    activated = pyqtSignal(int)
+    textActivated = pyqtSignal(str)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        configure_combobox(self)
+        self._items: List[Tuple[str, Any]] = []
+        self._index: int = -1
+        self._block = False
 
-    def hidePopup(self) -> None:  # noqa: N802
-        soft_close_combo_popup(self)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-    def showPopup(self) -> None:  # noqa: N802
-        # Recreate the list view if a previous dismiss left it unusable.
-        view = _ensure_list_view(self)
-        filt = self.property("_organize_combo_filter")
-        if isinstance(filt, QObject):
-            try:
-                view.viewport().installEventFilter(filt)
-            except RuntimeError:
-                # Viewport was recreated with the view.
-                popup_filter = _PopupCloseFilter(self)
-                view.viewport().installEventFilter(popup_filter)
-                self.setProperty("_organize_combo_filter", popup_filter)
+        self._button = QToolButton(self)
+        self._button.setObjectName("MenuSelectButton")
+        self._button.setToolButtonStyle(
+            self._button.toolButtonStyle()  # keep default text-only feel
+        )
+        from PyQt6.QtCore import Qt
 
-        # Make sure the model still has rows (paranoia for empty second open).
-        model = self.model()
-        if model is not None and model.rowCount() == 0 and self.count() > 0:
-            # Force model refresh from combo items.
-            self.setModel(self.model())
+        self._button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self._button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self._button.setAutoRaise(False)
+        self._menu = QMenu(self._button)
+        self._button.setMenu(self._menu)
+        layout.addWidget(self._button)
 
-        super().showPopup()
+        self._sync_button_label()
+
+    # ----- QComboBox-like API -------------------------------------------
+
+    def addItem(self, text: str, userData: Any = None) -> None:  # noqa: N802
+        self._items.append((str(text), userData))
+        self._rebuild_menu()
+        if self._index < 0:
+            self.setCurrentIndex(0)
+
+    def addItems(self, texts: Iterable[str]) -> None:  # noqa: N802
+        for text in texts:
+            self._items.append((str(text), None))
+        self._rebuild_menu()
+        if self._index < 0 and self._items:
+            self.setCurrentIndex(0)
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def itemText(self, index: int) -> str:  # noqa: N802
+        if 0 <= index < len(self._items):
+            return self._items[index][0]
+        return ""
+
+    def currentIndex(self) -> int:  # noqa: N802
+        return self._index
+
+    def currentText(self) -> str:  # noqa: N802
+        if 0 <= self._index < len(self._items):
+            return self._items[self._index][0]
+        return ""
+
+    def currentData(self) -> Any:  # noqa: N802
+        if 0 <= self._index < len(self._items):
+            return self._items[self._index][1]
+        return None
+
+    def setCurrentIndex(self, index: int) -> None:  # noqa: N802
+        if index < 0 or index >= len(self._items):
+            return
+        if index == self._index:
+            self._sync_button_label()
+            return
+        self._index = index
+        self._sync_button_label()
+        if not self._block:
+            self.currentIndexChanged.emit(index)
+
+    def findData(self, value: Any) -> int:  # noqa: N802
+        for i, (_text, data) in enumerate(self._items):
+            if data == value:
+                return i
+        return -1
+
+    def findText(self, text: str) -> int:  # noqa: N802
+        for i, (item_text, _data) in enumerate(self._items):
+            if item_text == text:
+                return i
+        return -1
+
+    def clear(self) -> None:
+        self._items.clear()
+        self._index = -1
+        self._rebuild_menu()
+        self._sync_button_label()
+
+    # ----- internals ----------------------------------------------------
+
+    def _rebuild_menu(self) -> None:
+        self._menu.clear()
+        for i, (text, _data) in enumerate(self._items):
+            action = self._menu.addAction(text)
+            # Default-arg bind index so the lambda does not close over the loop var.
+            action.triggered.connect(lambda _checked=False, idx=i: self._on_pick(idx))
+
+    def _on_pick(self, index: int) -> None:
+        self.setCurrentIndex(index)
+        self.activated.emit(index)
+        self.textActivated.emit(self.itemText(index))
+        # QMenu closes itself after triggered — that is the whole point.
+
+    def _sync_button_label(self) -> None:
+        text = self.currentText() or "Select…"
+        # Trailing arrow hint (menu is InstantPopup).
+        self._button.setText(f"{text}  ▾")
+
+    def blockSignals(self, block: bool) -> bool:  # noqa: N802
+        """Match QObject.blockSignals and also suppress our index emissions."""
+        prev = self._block
+        self._block = block
+        super().blockSignals(block)
+        return prev
+
+
+# Back-compat aliases used across the codebase / older tests.
+ClosingComboBox = MenuSelect
+
+
+def configure_combobox(combo: QWidget) -> QWidget:
+    """No-op for MenuSelect; kept so polish hooks stay safe."""
+    return combo
 
 
 def polish_comboboxes(root: Optional[QWidget] = None) -> None:
-    """Patch every :class:`QComboBox` under *root* (or the whole application)."""
-    if root is not None:
-        candidates = [root, *root.findChildren(QComboBox)]
-    else:
-        app = QApplication.instance()
-        if app is None:
-            return
-        candidates = list(app.allWidgets())
+    """No-op: MenuSelect does not need runtime patching."""
+    return
 
-    for widget in candidates:
-        if isinstance(widget, QComboBox):
-            configure_combobox(widget)
+
+def soft_close_combo_popup(combo: QWidget) -> None:
+    """No-op compatibility helper for tests."""
+    return
