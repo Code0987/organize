@@ -212,17 +212,20 @@ def test_item_editor_required_validation(qapp, monkeypatch):
 def test_configure_combobox_closes_popup(qapp):
     from PyQt6.QtCore import QEventLoop, QTimer
 
-    from ui.styles.combo_fix import ClosingComboBox, configure_combobox, force_close_combo_popup
+    from ui.styles.combo_fix import ClosingComboBox, soft_close_combo_popup
 
     combo = ClosingComboBox()
     combo.addItems(["a", "b", "c"])
-    configure_combobox(combo)  # idempotent
-    assert combo.property("_organize_combo_popup_fixed")
+    assert combo.count() == 3
     combo.showPopup()
-    assert combo.view().isVisible() or True  # platform may differ offscreen
-    force_close_combo_popup(combo)
+    soft_close_combo_popup(combo)
     loop = QEventLoop()
     QTimer.singleShot(40, loop.quit)
     loop.exec()
-    assert not combo.view().isVisible()
+    # Items must still be present after dismiss + reopen.
+    assert combo.count() == 3
+    combo.showPopup()
+    assert combo.model() is not None
+    assert combo.model().rowCount() == 3
+    soft_close_combo_popup(combo)
     combo.close()

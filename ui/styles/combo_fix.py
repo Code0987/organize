@@ -1,11 +1,8 @@
-"""Reliable QComboBox that always dismisses its popup after a choice.
+"""Reliable QComboBox that dismisses its popup after a choice.
 
-Application stylesheets + Wayland/WSLg frequently leave Qt's combo popup
-stuck open after an item click. This module provides:
-
-* :class:`ClosingComboBox` — drop-in replacement used by the UI
-* :func:`configure_combobox` — harden an existing QComboBox
-* :func:`polish_comboboxes` — patch every combo currently alive
+Under Wayland/WSLg, styled QComboBox popups often stay open after a click.
+We close them explicitly — but *without* destroying the popup container, which
+left the list empty on the second open.
 """
 
 from __future__ import annotations
@@ -20,18 +17,15 @@ _PATCH_FLAG = "_organize_combo_popup_fixed"
 
 
 class _PopupCloseFilter(QObject):
-    """Close the owning combo when the popup list is clicked."""
+    """Select the clicked row and dismiss the popup."""
 
     def __init__(self, combo: QComboBox) -> None:
         super().__init__(combo)
         self._combo = combo
+        self._closing = False
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802
-        et = event.type()
-        if et not in (
-            QEvent.Type.MouseButtonRelease,
-            QEvent.Type.MouseButtonDblClick,
-        ):
+        if event.type() != QEvent.Type.MouseButtonRelease:
             return super().eventFilter(obj, event)
 
         view = self._combo.view()
@@ -39,37 +33,39 @@ class _PopupCloseFilter(QObject):
             return super().eventFilter(obj, event)
 
         try:
-            button = event.button()  # type: ignore[attr-defined]
+            if event.button() != Qt.MouseButton.LeftButton:  # type: ignore[attr-defined]
+                return super().eventFilter(obj, event)
             pos = event.position().toPoint()  # type: ignore[attr-defined]
         except Exception:
-            return super().eventFilter(obj, event)
-
-        if button != Qt.MouseButton.LeftButton:
             return super().eventFilter(obj, event)
 
         index = view.indexAt(pos)
         if not index.isValid():
             return super().eventFilter(obj, event)
 
-        row = index.row()
-        # Apply selection, then tear the popup down. Consume the event so Qt
-        # does not re-open / re-handle the click in a broken way.
-        if self._combo.currentIndex() != row:
-            self._combo.setCurrentIndex(row)
-        force_close_combo_popup(self._combo)
-        self._combo.activated.emit(row)
-        self._combo.textActivated.emit(self._combo.itemText(row))
-        # Second pass for compositors that re-show the popup frame.
-        QTimer.singleShot(0, lambda: force_close_combo_popup(self._combo))
-        QTimer.singleShot(40, lambda: force_close_combo_popup(self._combo))
+        if self._closing:
+            return True
+        self._closing = True
+        try:
+            row = index.row()
+            if self._combo.currentIndex() != row:
+                self._combo.setCurrentIndex(row)
+            # Soft-dismiss only — never destroy the popup host widget.
+            soft_close_combo_popup(self._combo)
+            self._combo.activated.emit(row)
+            self._combo.textActivated.emit(self._combo.itemText(row))
+            QTimer.singleShot(0, lambda: soft_close_combo_popup(self._combo))
+        finally:
+            # Allow future opens/selections.
+            QTimer.singleShot(50, lambda: setattr(self, "_closing", False))
         return True
 
 
-def force_close_combo_popup(combo: QComboBox) -> None:
-    """Hide the popup and any container windows hosting the list.
+def soft_close_combo_popup(combo: QComboBox) -> None:
+    """Hide the popup without destroying its view/container.
 
-    Always call :meth:`QComboBox.hidePopup` via the base class so subclasses
-    that override ``hidePopup`` cannot recurse into this helper.
+    Calling ``close()`` on Qt's internal popup frame was wiping the item list
+    for subsequent opens. Stick to hidePopup + hide on the transient window.
     """
     try:
         QComboBox.hidePopup(combo)
@@ -80,39 +76,27 @@ def force_close_combo_popup(combo: QComboBox) -> None:
     if view is None:
         return
 
-    try:
-        view.hide()
-    except Exception:
-        pass
-
-    # Walk parents: the list view lives inside a private Qt container frame.
-    parent: Optional[QWidget] = view.parentWidget()
-    depth = 0
-    while parent is not None and depth < 8:
-        if parent is combo or parent is combo.window():
-            break
-        try:
-            parent.hide()
-            if parent.isWindow():
-                parent.close()
-        except Exception:
-            pass
-        parent = parent.parentWidget()
-        depth += 1
-
+    # Hide the transient popup window if Qt placed the view in one — do not close().
     try:
         top = view.window()
-        if top is not None and top is not combo.window() and top is not combo:
+        if top is not None and top is not combo and top is not combo.window():
             top.hide()
-            top.close()
     except Exception:
         pass
 
 
-def configure_combobox(combo: QComboBox) -> QComboBox:
-    """Harden *combo* so its dropdown always closes after a selection."""
-    if bool(combo.property(_PATCH_FLAG)):
-        return combo
+def _ensure_list_view(combo: QComboBox) -> QListView:
+    """Return a healthy list view for *combo*, recreating it if needed."""
+    view = combo.view()
+    # sip/cpp object may be deleted after a hard close; treat as missing.
+    try:
+        alive = view is not None and view.model() is not None
+        if alive and isinstance(view, QListView):
+            # Touch a property to detect deleted C++ wrappers.
+            _ = view.isVisible()
+            return view  # type: ignore[return-value]
+    except RuntimeError:
+        alive = False
 
     view = QListView(combo)
     view.setUniformItemSizes(True)
@@ -122,45 +106,64 @@ def configure_combobox(combo: QComboBox) -> QComboBox:
     view.setSelectionBehavior(QListView.SelectionBehavior.SelectRows)
     view.setSelectionMode(QListView.SelectionMode.SingleSelection)
     combo.setView(view)
+    return view
+
+
+def configure_combobox(combo: QComboBox) -> QComboBox:
+    """Harden *combo* so its dropdown closes after a selection and reopens with items."""
+    if bool(combo.property(_PATCH_FLAG)):
+        # Still re-bind the view in case a previous close destroyed it.
+        _ensure_list_view(combo)
+        return combo
+
+    view = _ensure_list_view(combo)
     combo.setMaxVisibleItems(16)
     combo.setEditable(False)
 
     def _on_activated(*_args: object) -> None:
-        force_close_combo_popup(combo)
-        QTimer.singleShot(0, lambda: force_close_combo_popup(combo))
-        QTimer.singleShot(40, lambda: force_close_combo_popup(combo))
+        soft_close_combo_popup(combo)
+        QTimer.singleShot(0, lambda: soft_close_combo_popup(combo))
 
     combo.activated.connect(_on_activated)
     combo.textActivated.connect(_on_activated)
 
     popup_filter = _PopupCloseFilter(combo)
     view.viewport().installEventFilter(popup_filter)
-    # Keep a Python reference so the filter is not garbage-collected.
     combo.setProperty("_organize_combo_filter", popup_filter)
-
     combo.setProperty(_PATCH_FLAG, True)
     return combo
 
 
 class ClosingComboBox(QComboBox):
-    """Drop-in QComboBox that always dismisses after a selection."""
+    """Drop-in QComboBox that dismisses after a selection and keeps items intact."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         configure_combobox(self)
 
     def hidePopup(self) -> None:  # noqa: N802
-        # Do not call self.hidePopup recursion; force_close uses the base method.
-        force_close_combo_popup(self)
+        soft_close_combo_popup(self)
 
     def showPopup(self) -> None:  # noqa: N802
-        super().showPopup()
-        view = self.view()
-        if view is None:
-            return
+        # Recreate the list view if a previous dismiss left it unusable.
+        view = _ensure_list_view(self)
         filt = self.property("_organize_combo_filter")
         if isinstance(filt, QObject):
-            view.viewport().installEventFilter(filt)
+            try:
+                view.viewport().installEventFilter(filt)
+            except RuntimeError:
+                # Viewport was recreated with the view.
+                popup_filter = _PopupCloseFilter(self)
+                view.viewport().installEventFilter(popup_filter)
+                self.setProperty("_organize_combo_filter", popup_filter)
+
+        # Make sure the model still has rows (paranoia for empty second open).
+        model = self.model()
+        if model is not None and model.rowCount() == 0 and self.count() > 0:
+            # Force model refresh from combo items.
+            self.setModel(self.model())
+
+        super().showPopup()
 
 
 def polish_comboboxes(root: Optional[QWidget] = None) -> None:
