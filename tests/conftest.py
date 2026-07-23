@@ -71,3 +71,66 @@ def read_files(path: Union[Path, str] = "."):
         if x.is_dir():
             result[x.name] = read_files(x)
     return result
+
+
+# ----- GUI fixtures (merged here so nested tests/gui/conftest cannot shadow
+# ``from conftest import make_files`` used across the suite) -----
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("ORGANIZE_UI_SCALE", "1")
+os.environ.setdefault("ORGANIZE_THEME", "light")
+os.environ.setdefault("ORGANIZE_SKIP_HOST_PROBES", "1")
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    """Session-scoped QApplication used by GUI tests."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QGuiApplication
+    from PyQt6.QtWidgets import QApplication
+
+    from ui.styles.palette import ThemeMode
+    from ui.styles.theme import apply_theme
+
+    os.environ.setdefault("QT_SCALE_FACTOR", "1")
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(["organize-ui-tests"])
+    apply_theme(app, ThemeMode.LIGHT)
+    yield app
+
+
+@pytest.fixture()
+def main_window(qapp):
+    """Fresh MainWindow for each GUI test."""
+    from PyQt6.QtGui import QCloseEvent
+
+    from ui.main_window import MainWindow
+
+    window = MainWindow()
+    yield window
+    window.document.mark_clean()
+    window._worker = None
+
+    def _accept(event: QCloseEvent) -> None:
+        event.accept()
+
+    window.closeEvent = _accept  # type: ignore[method-assign]
+    window.close()
+
+
+@pytest.fixture()
+def sample_tree(tmp_path: Path) -> Path:
+    """Small file tree for organize dry-run / live GUI tests."""
+    downloads = tmp_path / "Downloads"
+    downloads.mkdir()
+    (downloads / "invoice.pdf").write_text("pdf-bytes", encoding="utf-8")
+    (downloads / "notes.txt").write_text("hello", encoding="utf-8")
+    (downloads / "photo.JPG").write_text("img", encoding="utf-8")
+    (tmp_path / "Documents").mkdir()
+    return tmp_path
+

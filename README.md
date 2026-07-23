@@ -79,6 +79,84 @@ pip install -U organize-tool
 
 This command can also be used to update to the newest version. Now you can run `organize --help` to check if the installation was successful.
 
+### Desktop GUI (optional)
+
+This repository includes a **PyQt6 desktop application** for creating, editing, and
+running organize rules interactively (form-based rule editor, dry-run, and logs).
+
+#### Setup from a local checkout
+
+```bash
+# Clone and enter the repo
+git clone https://github.com/tfeldmann/organize.git
+cd organize
+
+# Create a virtualenv (Python 3.9+) and install with GUI extras
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# Using pip:
+pip install -U pip
+pip install -e ".[gui]"
+
+# Or using uv (recommended if you have it):
+# uv venv .venv --python 3.12
+# source .venv/bin/activate
+# uv sync --group dev --extra gui
+```
+
+#### Launch the GUI
+
+```bash
+organize-gui
+# or
+python -m ui
+```
+
+#### GUI usage
+
+1. **Rules list (left)** — add, duplicate, remove, or reorder rules.
+2. **Rule editor (center)** — edit name, targets, locations, filter mode, tags,
+   and manage filters/actions via interactive forms (not just raw YAML).
+3. **YAML preview (right)** — live read-only view of the config that will be saved/run.
+4. **Logs (bottom)** — messages and errors from dry-runs and live runs; use
+   **Save logs…** to export them as a text file.
+5. **Dry-run mode** — checked by default in the toolbar. Prefer **Dry-run**
+   (`Ctrl+R`) to preview actions without changing files. Uncheck dry-run and
+   confirm before a live **Run**.
+6. **File menu** — New / Open / Save YAML configs compatible with the CLI
+   (`organize sim` / `organize run`).
+
+Configs created in the GUI are standard organize YAML and work with the CLI.
+
+Configs created in the GUI are standard organize YAML and work with the CLI.
+
+#### Light / dark theme
+
+The GUI follows the system appearance (Windows app theme, Qt color scheme,
+GNOME, or macOS) and switches live when the OS theme changes.
+
+```bash
+# Optional override
+export ORGANIZE_THEME=dark    # or light | system
+organize-gui
+```
+
+#### High-DPI / Windows display scaling
+
+On Windows (and WSL), the GUI reads the system display scale (for example
+125% / 150%) and sets Qt’s scale factor automatically before startup.
+
+If it still looks wrong, override explicitly:
+
+```bash
+# Force 125% or 150%
+export ORGANIZE_UI_SCALE=1.25
+# or: export ORGANIZE_UI_SCALE=1.5
+organize-gui
+```
+
+
 ### Create your first rule
 
 In your shell, run `organize new` and then `organize edit` to edit the configuration:

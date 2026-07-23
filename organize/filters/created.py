@@ -9,6 +9,20 @@ from organize.filter import FilterConfig
 from .common.timefilter import TimeFilter
 
 
+def _valid_timestamp(value: Optional[float]) -> Optional[float]:
+    """Return *value* only if it looks like a real creation timestamp.
+
+    GNU ``stat --format=%W`` returns ``0`` when the birth time is unknown.
+    Some platforms expose ``st_birthtime == 0`` in the same situation. Treat
+    those as "unavailable" so callers do not see 1970-01-01 as a real date.
+    """
+    if value is None:
+        return None
+    if value <= 0:
+        return None
+    return value
+
+
 def read_stat_created(path: Path) -> Optional[int]:
     commands = (
         ["stat", "--format=%W", str(path)],  # GNU coreutils
@@ -18,8 +32,10 @@ def read_stat_created(path: Path) -> Optional[int]:
         try:
             created_str = subprocess.check_output(cmd, encoding="utf-8").strip()
             timestamp = int(created_str)
-            return timestamp
-        except subprocess.CalledProcessError:
+            valid = _valid_timestamp(timestamp)
+            if valid is not None:
+                return int(valid)
+        except (subprocess.CalledProcessError, ValueError):
             pass
     return None
 
@@ -31,13 +47,13 @@ def read_created(path: Path) -> datetime:
     # ctime is the creation time only in Windows.
     # On unix it's the datetime of the last metadata change.
     if sys.platform == "win32":
-        timestamp = stat_result.st_ctime
+        timestamp = _valid_timestamp(stat_result.st_ctime)
     else:
         # On other Unix systems (such as FreeBSD), the following
         # attributes may be available (but may be only filled out if
         # root tries to use them):
         try:
-            timestamp = stat_result.st_birthtime  # type: ignore
+            timestamp = _valid_timestamp(stat_result.st_birthtime)  # type: ignore
         except AttributeError:
             pass
 

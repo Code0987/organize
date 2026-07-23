@@ -19,6 +19,7 @@ classifiers = [
     # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
+    "Environment :: X11 Applications :: Qt",
     "Intended Audience :: End Users/Desktop",
     "Natural Language :: English",
     "Operating System :: OS Independent",
@@ -54,9 +55,16 @@ docs = [
     "mkdocs>=1.5.3,<2.0.0",
     "mkdocstrings[python]>=0.24.0,<1.0.0",
 ]
+gui = [
+    "PyQt6>=6.6.0",
+]
 
 [project.scripts]
 organize = "organize.cli:cli"
+organize-gui = "ui.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["organize*", "ui*"]
 
 [dependency-groups]
 dev = [
@@ -71,7 +79,7 @@ dev = [
 ]
 
 [tool.coverage.run]
-source = ['organize']
+source = ['organize', 'ui']
 
 [tool.coverage.report]
 exclude_also = ["pragma: no cover", "if TYPE_CHECKING:"]
