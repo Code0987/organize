@@ -85,6 +85,8 @@ def test_detect_host_scale_windows_and_gdk(monkeypatch):
 
 
 def test_windows_scale_factor_from_powershell(monkeypatch):
+    # On real Windows CI, native ctypes DPI is preferred; force the PowerShell path.
+    monkeypatch.setattr(dpi, "_windows_scale_via_ctypes", lambda: None)
     monkeypatch.setattr(dpi, "_find_powershell", lambda: "powershell.exe")
     monkeypatch.setattr(
         subprocess,
