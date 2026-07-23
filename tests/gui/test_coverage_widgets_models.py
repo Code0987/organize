@@ -207,3 +207,29 @@ def test_item_editor_required_validation(qapp, monkeypatch):
     d3.type_combo.setCurrentIndex(idx)
     assert d3.result_item().name == "delete"
     d3.close()
+
+
+def test_configure_combobox_closes_popup(qapp):
+    from PyQt6.QtWidgets import QComboBox
+
+    from ui.styles.combo_fix import configure_combobox
+
+    combo = QComboBox()
+    combo.addItems(["a", "b", "c"])
+    configure_combobox(combo)
+    configure_combobox(combo)  # idempotent
+    assert combo.property("_organize_combo_popup_fixed")
+    combo.showPopup()
+    combo.setCurrentIndex(1)
+    combo.activated.emit(1)
+    qapp.processEvents()
+    # hidePopup is deferred via QTimer; process events again after
+    from PyQt6.QtCore import QTimer
+    from PyQt6.QtCore import QEventLoop
+
+    loop = QEventLoop()
+    QTimer.singleShot(20, loop.quit)
+    loop.exec()
+    # After activation the popup should not stay visible
+    assert not combo.view().isVisible()
+    combo.close()

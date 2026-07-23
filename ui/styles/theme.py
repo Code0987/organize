@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 
 from ui.styles.dpi import effective_ui_scale, scale_stylesheet, screen_scale_factor
 from ui.styles.palette import ColorPalette, ThemeMode, palette_for
+from ui.styles.combo_fix import polish_comboboxes
 from ui.styles.system_theme import detect_system_theme
 
 
@@ -181,7 +182,7 @@ QLabel#EmptyState {{
     background-color: transparent;
 }}
 
-QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit {{
+QLineEdit, QSpinBox, QTextEdit, QPlainTextEdit {{
     background-color: {input_bg};
     border: 1px solid {border_strong};
     border-radius: 8px;
@@ -191,19 +192,44 @@ QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit {{
     selection-color: {text};
 }}
 
+/* QComboBox is styled separately: shared padding/radius with QLineEdit can
+   leave the dropdown stuck open after a selection (Qt stylesheet quirk,
+   especially under Wayland/WSLg). */
+QComboBox {{
+    background-color: {input_bg};
+    border: 1px solid {border_strong};
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: {text};
+    /* Non-native popup is more reliable with stylesheets. */
+    combobox-popup: 0;
+}}
+
 QLineEdit#RuleNameEdit {{
     font-size: 16px;
     font-weight: 600;
     padding: 10px 12px;
 }}
 
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QTextEdit:focus {{
+QLineEdit:focus, QSpinBox:focus, QTextEdit:focus {{
+    border: 1px solid {focus_border};
+}}
+
+QComboBox:focus {{
     border: 1px solid {focus_border};
 }}
 
 QComboBox::drop-down {{
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 22px;
     border: none;
-    width: 24px;
+    background: transparent;
+}}
+
+QComboBox::down-arrow {{
+    width: 10px;
+    height: 10px;
 }}
 
 QComboBox QAbstractItemView {{
@@ -211,6 +237,16 @@ QComboBox QAbstractItemView {{
     color: {text};
     border: 1px solid {border};
     selection-background-color: {selected_bg};
+    selection-color: {text};
+    outline: none;
+    padding: 2px;
+}}
+
+QComboBox QAbstractItemView::item {{
+    min-height: 24px;
+    padding: 4px 8px;
+    /* Avoid rounded item chrome in the popup — it can break click handling. */
+    border-radius: 0px;
 }}
 
 QListWidget {{
@@ -501,6 +537,8 @@ def apply_theme(
     app.setProperty("stylesheet_scale", sheet_scale)
     app.setProperty("theme_mode", resolved.value)
     app.setProperty("color_palette", palette)
+    # Re-apply combo popup fix after stylesheet changes.
+    polish_comboboxes()
     return scale
 
 

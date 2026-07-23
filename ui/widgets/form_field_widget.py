@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.schemas.field_spec import FieldSpec
+from ui.styles.combo_fix import configure_combobox
 
 
 class FormFieldWidget(QWidget):
@@ -54,7 +55,7 @@ class FormFieldWidget(QWidget):
         if ftype == "choice":
             combo = QComboBox()
             combo.addItems(list(self.spec.choices))
-            return combo
+            return configure_combobox(combo)
         if ftype == "int":
             spin = QSpinBox()
             spin.setRange(-10_000_000, 10_000_000)
