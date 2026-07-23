@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.models.rule_item import RuleItem
-from ui.styles.combo_fix import configure_combobox
+from ui.styles.combo_fix import ClosingComboBox
 from ui.widgets.location_list_widget import LocationListWidget
 from ui.widgets.pipeline_list_widget import PipelineListWidget
 
@@ -83,10 +83,10 @@ class RuleEditorWidget(QWidget):
         options_layout.setContentsMargins(14, 12, 14, 12)
         options_layout.setHorizontalSpacing(16)
         options_layout.setVerticalSpacing(10)
-        self.targets_combo = configure_combobox(QComboBox())
+        self.targets_combo = ClosingComboBox()
         self.targets_combo.addItem("Files", "files")
         self.targets_combo.addItem("Folders", "dirs")
-        self.filter_mode_combo = configure_combobox(QComboBox())
+        self.filter_mode_combo = ClosingComboBox()
         self.filter_mode_combo.addItem("All filters must match", "all")
         self.filter_mode_combo.addItem("Any filter may match", "any")
         self.filter_mode_combo.addItem("No filters may match", "none")

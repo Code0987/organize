@@ -192,17 +192,16 @@ QLineEdit, QSpinBox, QTextEdit, QPlainTextEdit {{
     selection-color: {text};
 }}
 
-/* QComboBox is styled separately: shared padding/radius with QLineEdit can
-   leave the dropdown stuck open after a selection (Qt stylesheet quirk,
-   especially under Wayland/WSLg). */
+/* Keep QComboBox chrome minimal. Heavy stylesheet on the popup view is a
+   known cause of "dropdown stays open" under Wayland/WSLg. Popup colors
+   come from the QPalette instead. */
 QComboBox {{
     background-color: {input_bg};
     border: 1px solid {border_strong};
-    border-radius: 6px;
-    padding: 5px 8px;
+    border-radius: 4px;
+    padding: 4px 28px 4px 8px;
     color: {text};
-    /* Non-native popup is more reliable with stylesheets. */
-    combobox-popup: 0;
+    min-height: 1.2em;
 }}
 
 QLineEdit#RuleNameEdit {{
@@ -211,11 +210,7 @@ QLineEdit#RuleNameEdit {{
     padding: 10px 12px;
 }}
 
-QLineEdit:focus, QSpinBox:focus, QTextEdit:focus {{
-    border: 1px solid {focus_border};
-}}
-
-QComboBox:focus {{
+QLineEdit:focus, QSpinBox:focus, QTextEdit:focus, QComboBox:focus {{
     border: 1px solid {focus_border};
 }}
 
@@ -227,27 +222,8 @@ QComboBox::drop-down {{
     background: transparent;
 }}
 
-QComboBox::down-arrow {{
-    width: 10px;
-    height: 10px;
-}}
-
-QComboBox QAbstractItemView {{
-    background-color: {panel_bg};
-    color: {text};
-    border: 1px solid {border};
-    selection-background-color: {selected_bg};
-    selection-color: {text};
-    outline: none;
-    padding: 2px;
-}}
-
-QComboBox QAbstractItemView::item {{
-    min-height: 24px;
-    padding: 4px 8px;
-    /* Avoid rounded item chrome in the popup — it can break click handling. */
-    border-radius: 0px;
-}}
+/* Do NOT style QComboBox QAbstractItemView / ::item here — that breaks
+   click-to-close on several platforms when an app-wide sheet is set. */
 
 QListWidget {{
     background-color: {card_bg};
