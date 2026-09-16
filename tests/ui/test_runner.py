@@ -8,7 +8,9 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-pytest.importorskip("PyQt6")
+# Import the widgets module, not just PyQt6 — on Linux the package can
+# import while QtWidgets fails (missing libEGL).
+pytest.importorskip("PyQt6.QtWidgets")
 
 from PyQt6.QtCore import QEventLoop, QTimer
 from PyQt6.QtWidgets import QApplication
@@ -28,11 +30,13 @@ def qapp() -> QApplication:
 
 def test_worker_dry_run_echo(qapp: QApplication, tmp_path) -> None:
     (tmp_path / "hello.txt").write_text("hi", encoding="utf-8")
+    # as_posix() avoids YAML "\U" unicode-escape errors on Windows paths.
+    location = tmp_path.as_posix()
     request = RunRequest(
         text=f"""
 rules:
   - name: Echo names
-    locations: "{tmp_path}"
+    locations: "{location}"
     filters:
       - name
     actions:
