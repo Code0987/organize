@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 - Fixed #438 (`filecontent` filter fails for PDFs when `pdftotext` isn't installed, instead of falling back to `pdfminer`)
+- Fixed the `created` filter treating an unknown birth time (`stat %W` = 0 on
+  WSL/drvfs and other filesystems) as 1970-01-01. It now falls back to `ctime`.
+- Added a PyQt6 desktop GUI in ``ui/`` (`organize-gui` / `python -m ui`)
+  with interactive rule editing, dry-run, and saveable logs.
 
 ## v3.3.0 (2024-11-25)
 

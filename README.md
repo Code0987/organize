@@ -79,6 +79,49 @@ pip install -U organize-tool
 
 This command can also be used to update to the newest version. Now you can run `organize --help` to check if the installation was successful.
 
+### Desktop GUI
+
+organize includes a PyQt6 application for creating, editing, and running rules
+without writing YAML by hand. Filters and actions are edited with forms
+(dropdowns, folder pickers, invert checkboxes). A **Dry run** previews matches
+without touching files. The Logs tab shows every message and error and can
+save them to a file.
+
+**Setup** (from a clone of this repository):
+
+```bash
+# Python 3.9+ and a virtual environment are recommended
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e ".[desktop]"
+```
+
+`.[desktop]` installs organize plus **PyQt6**.
+
+**Usage:**
+
+```bash
+# Launch the window
+organize-gui
+python -m ui
+
+# Open a specific config
+organize-gui path/to/config.yaml
+```
+
+| Action | How |
+|---|---|
+| New / Open / Save | File menu, or `Ctrl+N` / `Ctrl+O` / `Ctrl+S` |
+| Edit a rule | **Rules** tab — add locations, filters, and actions interactively |
+| Validate | **Check** (`Ctrl+L`) |
+| Preview | **Dry run** (`Ctrl+R`) — no files are changed |
+| Apply | **Run** (`Ctrl+Return`) — asks for confirmation first |
+| Export output | Logs tab → **Save log…** or **Save errors…** |
+
+Working directory and tag filters live in the toolbar. Starter presets
+(sort Downloads, invoices, duplicates, empty folders, …) are offered when
+you create a new config.
+
 ### Create your first rule
 
 In your shell, run `organize new` and then `organize edit` to edit the configuration:

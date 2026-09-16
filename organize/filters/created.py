@@ -2,26 +2,47 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar, Optional, Union
 
 from organize.filter import FilterConfig
 
 from .common.timefilter import TimeFilter
 
 
-def read_stat_created(path: Path) -> Optional[int]:
-    commands = (
-        ["stat", "--format=%W", str(path)],  # GNU coreutils
-        ["stat", "-f %B", str(path)],  # BSD
-    )
-    for cmd in commands:
-        try:
-            created_str = subprocess.check_output(cmd, encoding="utf-8").strip()
-            timestamp = int(created_str)
-            return timestamp
-        except subprocess.CalledProcessError:
-            pass
-    return None
+def _valid_timestamp(value: Union[int, float, str, None]) -> Optional[float]:
+    """Return a usable POSIX timestamp, or None if birth time is unknown.
+
+    GNU coreutils `stat --format=%W` returns 0 when the filesystem does not
+    expose a birth time (common on WSL/drvfs, network mounts, and some tmpfs).
+    Treating that 0 as a real timestamp produced 1970-01-01.
+    """
+    if value is None:
+        return None
+    try:
+        timestamp = float(value)
+    except (TypeError, ValueError):
+        return None
+    if timestamp <= 0:
+        return None
+    return timestamp
+
+
+def read_stat_created(path: Path) -> Optional[float]:
+    if sys.platform == "win32":
+        return None
+    if sys.platform == "darwin" or sys.platform.startswith("freebsd"):
+        cmd = ["stat", "-f", "%B", str(path)]
+    else:
+        cmd = ["stat", "--format=%W", str(path)]
+    try:
+        created_str = subprocess.check_output(
+            cmd,
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    return _valid_timestamp(created_str)
 
 
 def read_created(path: Path) -> datetime:
@@ -31,13 +52,13 @@ def read_created(path: Path) -> datetime:
     # ctime is the creation time only in Windows.
     # On unix it's the datetime of the last metadata change.
     if sys.platform == "win32":
-        timestamp = stat_result.st_ctime
+        timestamp = _valid_timestamp(stat_result.st_ctime)
     else:
         # On other Unix systems (such as FreeBSD), the following
         # attributes may be available (but may be only filled out if
         # root tries to use them):
         try:
-            timestamp = stat_result.st_birthtime  # type: ignore
+            timestamp = _valid_timestamp(stat_result.st_birthtime)  # type: ignore
         except AttributeError:
             pass
 
@@ -45,6 +66,12 @@ def read_created(path: Path) -> datetime:
     # method using the `stat` tool.
     if timestamp is None:
         timestamp = read_stat_created(path)
+
+    # Last resort: ctime. On Unix this is last metadata change, not birth
+    # time, but it is the closest portable value and avoids treating an
+    # unknown birth time as 1970-01-01.
+    if timestamp is None:
+        timestamp = _valid_timestamp(stat_result.st_ctime)
 
     # give up.
     if timestamp is None:
