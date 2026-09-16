@@ -8,6 +8,8 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+pytest.importorskip("PyQt6")
+
 from PyQt6.QtWidgets import QApplication
 
 from ui.models.preset_library import PresetLibrary

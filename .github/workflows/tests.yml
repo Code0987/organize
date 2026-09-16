@@ -38,9 +38,11 @@ jobs:
           uv run python main.py --version
 
       - name: Test with pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
-          uv run python -m pytest tests
+          uv run --extra desktop python -m pytest tests
 
       - name: Check with MyPy
         run: |
-          uv run mypy .
+          uv run mypy organize
